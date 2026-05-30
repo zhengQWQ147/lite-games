@@ -38,6 +38,7 @@ export class GameWin {
   valueUp: Cell[][]
   valueUpCnt: number
   valueDown: BackgroundCell[][]
+  score: number = 0
 
   //游戏栈，用于撤回
   historyStack: [Cell[][], BackgroundCell[][], move: MoveType][] = []
@@ -65,8 +66,16 @@ export class GameWin {
   move(moveTyle: MoveType): void {
     //入栈，历史记录，用于撤回
     this.historyStack.push([
-      structuredClone(this.valueUp),
-      structuredClone(this.valueDown),
+      this.valueUp.map((row) =>
+        row.map((cell) => new Cell(cell.level, cell.location.x, cell.location.y)),
+      ),
+      this.valueDown.map((row) =>
+        row.map((bg) => {
+          const c = new BackgroundCell(bg.location.x, bg.location.y)
+          c.type = bg.type
+          return c
+        }),
+      ),
       moveTyle,
     ])
     if (this.historyStack.length > 20) this.historyStack.shift()
@@ -162,6 +171,8 @@ export class GameWin {
     for (let r = 0; r < this.row; r++)
       for (let c = 0; c < this.col; c++) if (this.valueUp[r]![c]!.level > 0) this.valueUpCnt++
     this.createNum()
+
+    this.scoreCnt()
   }
 
   //撤回函数
@@ -171,6 +182,8 @@ export class GameWin {
     this.valueUp = buff[0]
     this.valueDown = buff[1]
     //buff[2]用于动画
+
+    this.scoreCnt()
   }
 
   //生成数字
@@ -182,7 +195,18 @@ export class GameWin {
       }
     }
     if (emptyCells.length === 0) return
-    const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)]!
-    this.valueUp[r]![c]!.level = Math.random() < 0.9 ? 1 : 2
+    for (let i = 0; i < 2; i++) {
+      const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)]!
+      this.valueUp[r]![c]!.level = Math.random() < 0.9 ? 1 : 2
+    }
+  }
+
+  //计算分数
+  scoreCnt() {
+    this.score = 0
+    for (let i = 0; i < this.row; i++)
+      for (let j = 0; j < this.col; j++) {
+        if (this.valueUp[i]![j]!.level !== 0) this.score += Math.pow(2, this.valueUp[i]![j]!.level)
+      }
   }
 }

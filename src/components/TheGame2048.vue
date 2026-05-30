@@ -4,18 +4,13 @@ import { GameWin, MoveType } from '../stores/game2048'
 
 const game = reactive(new GameWin())
 
-// 触摸手势
-const touchStart = { x: 0, y: 0 }
+// 滑动起点
+const startPos = { x: 0, y: 0 }
 const MIN_SWIPE = 30
 
-function handleTouchStart(e: TouchEvent) {
-  touchStart.x = e.touches[0]!.clientX
-  touchStart.y = e.touches[0]!.clientY
-}
-
-function handleTouchEnd(e: TouchEvent) {
-  const dx = e.changedTouches[0]!.clientX - touchStart.x
-  const dy = e.changedTouches[0]!.clientY - touchStart.y
+function swipeDir(ex: number, ey: number) {
+  const dx = ex - startPos.x
+  const dy = ey - startPos.y
   const absDx = Math.abs(dx)
   const absDy = Math.abs(dy)
 
@@ -26,6 +21,27 @@ function handleTouchEnd(e: TouchEvent) {
   } else {
     game.move(dy > 0 ? MoveType.down : MoveType.up)
   }
+}
+
+// 触摸
+function handleTouchStart(e: TouchEvent) {
+  startPos.x = e.touches[0]!.clientX
+  startPos.y = e.touches[0]!.clientY
+}
+
+function handleTouchEnd(e: TouchEvent) {
+  swipeDir(e.changedTouches[0]!.clientX, e.changedTouches[0]!.clientY)
+}
+
+// 鼠标拖拽
+function handleMouseDown(e: MouseEvent) {
+  startPos.x = e.clientX
+  startPos.y = e.clientY
+  console.log("鼠标移动")
+}
+
+function handleMouseUp(e: MouseEvent) {
+  swipeDir(e.clientX, e.clientY)
 }
 
 // 键盘支持（桌面调试）
@@ -59,27 +75,18 @@ const cellColors: Record<number, { bg: string; color: string }> = {
 </script>
 
 <template>
-  <div
-    class="game-2048"
-    @touchstart="handleTouchStart"
-    @touchmove.prevent
-    @touchend="handleTouchEnd"
-  >
+  <div class="game-2048" @touchstart="handleTouchStart" @touchmove.prevent @touchend="handleTouchEnd"
+    @mousedown="handleMouseDown" @mouseup="handleMouseUp">
     <div class="header">
-      <div class="score">分数: {{ game.valueUpCnt }}</div>
+      <div class="score">分数: {{ game.score }}</div>
       <button class="undo-btn" @click="game.rollbackMove()">撤回</button>
     </div>
     <div class="grid">
-      <div
-        v-for="(cell, idx) in game.valueUp.flat()"
-        :key="idx"
-        class="cell"
-        :style="{
-          backgroundColor: cellColors[cell.level]?.bg ?? '#3c3a32',
-          color: cellColors[cell.level]?.color ?? '#f9f6f2',
-          fontSize: cell.level >= 10 ? 'min(3.5vw, 18px)' : 'min(5vw, 26px)',
-        }"
-      >
+      <div v-for="(cell, idx) in game.valueUp.flat()" :key="idx" class="cell" :style="{
+        backgroundColor: cellColors[cell.level]?.bg ?? '#3c3a32',
+        color: cellColors[cell.level]?.color ?? '#f9f6f2',
+        fontSize: cell.level >= 10 ? 'min(3.5vw, 18px)' : 'min(5vw, 26px)',
+      }">
         {{ cell.level > 0 ? 2 ** cell.level : '' }}
       </div>
     </div>
