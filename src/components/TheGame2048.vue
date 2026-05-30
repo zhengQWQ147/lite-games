@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, onMounted, onUnmounted } from 'vue'
+import { reactive, computed, onMounted, onUnmounted } from 'vue'
 import { GameWin, MoveType } from '../stores/game2048'
 
 const game = reactive(new GameWin())
@@ -37,7 +37,6 @@ function handleTouchEnd(e: TouchEvent) {
 function handleMouseDown(e: MouseEvent) {
   startPos.x = e.clientX
   startPos.y = e.clientY
-  console.log("鼠标移动")
 }
 
 function handleMouseUp(e: MouseEvent) {
@@ -72,22 +71,64 @@ const cellColors: Record<number, { bg: string; color: string }> = {
   10: { bg: '#edc53f', color: '#f9f6f2' },
   11: { bg: '#edc22e', color: '#f9f6f2' },
 }
+
+// 格子列表（用于绝对定位渲染）
+const tileList = computed(() => {
+  const tiles: { id: number; level: number; row: number; col: number; isNew: boolean; isMerged: boolean }[] = []
+  for (let r = 0; r < game.row; r++) {
+    for (let c = 0; c < game.col; c++) {
+      const cell = game.valueUp[r]![c]!
+      if (cell.level > 0) {
+        tiles.push({
+          id: cell.tileId,
+          level: cell.level,
+          row: r,
+          col: c,
+          isNew: game.newCells[r]?.[c] ?? false,
+          isMerged: game.mergeCells[r]?.[c] ?? false,
+        })
+      }
+    }
+  }
+  return tiles
+})
 </script>
 
 <template>
-  <div class="game-2048" @touchstart="handleTouchStart" @touchmove.prevent @touchend="handleTouchEnd"
-    @mousedown="handleMouseDown" @mouseup="handleMouseUp">
+  <div
+    class="game-2048"
+    @touchstart="handleTouchStart"
+    @touchmove.prevent
+    @touchend="handleTouchEnd"
+    @mousedown="handleMouseDown"
+    @mouseup="handleMouseUp"
+  >
     <div class="header">
       <div class="score">分数: {{ game.score }}</div>
       <button class="undo-btn" @click="game.rollbackMove()">撤回</button>
     </div>
-    <div class="grid">
-      <div v-for="(cell, idx) in game.valueUp.flat()" :key="idx" class="cell" :style="{
-        backgroundColor: cellColors[cell.level]?.bg ?? '#3c3a32',
-        color: cellColors[cell.level]?.color ?? '#f9f6f2',
-        fontSize: cell.level >= 10 ? 'min(3.5vw, 18px)' : 'min(5vw, 26px)',
-      }">
-        {{ cell.level > 0 ? 2 ** cell.level : '' }}
+    <div class="board">
+      <!-- 背景网格 -->
+      <div class="grid-bg">
+        <div v-for="idx in game.row * game.col" :key="idx" class="cell-bg" />
+      </div>
+      <!-- 格子层 -->
+      <div class="tile-layer">
+        <div
+          v-for="tile in tileList"
+          :key="tile.id"
+          class="tile"
+          :class="{ 'tile-new': tile.isNew, 'tile-merge': tile.isMerged }"
+          :style="{
+            left: `calc(8px + ${tile.col} * (20% - 1.6px))`,
+            top: `calc(8px + ${tile.row} * (20% - 1.6px))`,
+            backgroundColor: cellColors[tile.level]?.bg ?? '#3c3a32',
+            color: cellColors[tile.level]?.color ?? '#f9f6f2',
+            fontSize: tile.level >= 10 ? 'min(3.5vw, 18px)' : 'min(5vw, 26px)',
+          }"
+        >
+          {{ 2 ** tile.level }}
+        </div>
       </div>
     </div>
   </div>
@@ -135,22 +176,67 @@ const cellColors: Record<number, { bg: string; color: string }> = {
   background: #6b5a4e;
 }
 
-.grid {
+.board {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 1;
+}
+
+.grid-bg {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 8px;
   padding: 8px;
   background: #bbada0;
   border-radius: 8px;
+  width: 100%;
   aspect-ratio: 1;
 }
 
-.cell {
+.cell-bg {
+  background: rgba(238, 228, 218, 0.35);
+  border-radius: 4px;
+  aspect-ratio: 1;
+}
+
+.tile-layer {
+  position: absolute;
+  inset: 0;
+  padding: 8px;
+}
+
+.tile {
+  position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
   border-radius: 4px;
-  aspect-ratio: 1;
+  width: calc(20% - 9.6px);
+  height: calc(20% - 9.6px);
+  transition: left 0.12s ease, top 0.12s ease;
+  z-index: 1;
+}
+
+.tile-new {
+  animation: pop-in 0.2s ease;
+}
+
+.tile-merge {
+  animation: merge-pulse 0.2s ease;
+  z-index: 2;
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes merge-pulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 </style>

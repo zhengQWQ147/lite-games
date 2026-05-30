@@ -6,13 +6,17 @@ export enum MoveType {
   right = 3,
 }
 
+let nextTileId = 1
+
 //基础可移动元素（带数字）
 class Cell {
   level: number = 0
   location: { x: number; y: number }
-  constructor(level: number, x: number, y: number) {
+  tileId: number = 0
+  constructor(level: number, x: number, y: number, tileId?: number) {
     this.level = level
     this.location = { x: x, y: y }
+    this.tileId = tileId ?? 0
   }
 }
 //游戏底层元素类型
@@ -43,15 +47,25 @@ export class GameWin {
   //游戏栈，用于撤回
   historyStack: [Cell[][], BackgroundCell[][], move: MoveType][] = []
 
+  //动画标记
+  newCells: boolean[][] = []
+  mergeCells: boolean[][] = []
+
   constructor() {
     this.valueUp = Array.from({ length: this.row }, (_, r) =>
-      Array.from({ length: this.col }, (_, c) => new Cell(0, r, c)),
+      Array.from({ length: this.col }, (_, c) => new Cell(0, r, c, 0)),
     )
     this.valueUpCnt = 0
     this.valueDown = Array.from({ length: this.row }, (_, row) =>
       Array.from({ length: this.col }, (_, col) => new BackgroundCell(row, col)),
     )
+    this.resetAnimFlags()
     this.createNum()
+  }
+
+  resetAnimFlags() {
+    this.newCells = Array.from({ length: this.row }, () => Array(this.col).fill(false))
+    this.mergeCells = Array.from({ length: this.row }, () => Array(this.col).fill(false))
   }
 
   //尝试增加cell1和cell2，不能合并返回-1
@@ -67,7 +81,7 @@ export class GameWin {
     //入栈，历史记录，用于撤回
     this.historyStack.push([
       this.valueUp.map((row) =>
-        row.map((cell) => new Cell(cell.level, cell.location.x, cell.location.y)),
+        row.map((cell) => new Cell(cell.level, cell.location.x, cell.location.y, cell.tileId)),
       ),
       this.valueDown.map((row) =>
         row.map((bg) => {
@@ -80,24 +94,36 @@ export class GameWin {
     ])
     if (this.historyStack.length > 20) this.historyStack.shift()
 
+    // 保存旧状态，清空动画标记
+    this.resetAnimFlags()
+
     switch (moveTyle) {
       case MoveType.up: {
         for (let c = 0; c < this.col; c++) {
           const levels: number[] = []
+          const ids: number[] = []
           for (let r = 0; r < this.row; r++) {
-            if (this.valueUp[r]![c]!.level > 0) levels.push(this.valueUp[r]![c]!.level)
+            if (this.valueUp[r]![c]!.level > 0) {
+              levels.push(this.valueUp[r]![c]!.level)
+              ids.push(this.valueUp[r]![c]!.tileId)
+            }
           }
-          const merged: number[] = []
+          const mergedLv: number[] = []
+          const mergedId: number[] = []
           for (let i = 0; i < levels.length; i++) {
             if (i + 1 < levels.length && levels[i]! === levels[i + 1]!) {
-              merged.push(levels[i]! + 1)
+              mergedLv.push(levels[i]! + 1)
+              mergedId.push(ids[i]!)
+              this.mergeCells[levels.indexOf(levels[i]!)]![c] = true
               i++
             } else {
-              merged.push(levels[i]!)
+              mergedLv.push(levels[i]!)
+              mergedId.push(ids[i]!)
             }
           }
           for (let r = 0; r < this.row; r++) {
-            this.valueUp[r]![c]!.level = merged[r] ?? 0
+            this.valueUp[r]![c]!.level = mergedLv[r] ?? 0
+            this.valueUp[r]![c]!.tileId = mergedId[r] ?? 0
           }
         }
         break
@@ -105,20 +131,35 @@ export class GameWin {
       case MoveType.down: {
         for (let c = 0; c < this.col; c++) {
           const levels: number[] = []
+          const ids: number[] = []
           for (let r = this.row - 1; r >= 0; r--) {
-            if (this.valueUp[r]![c]!.level > 0) levels.push(this.valueUp[r]![c]!.level)
+            if (this.valueUp[r]![c]!.level > 0) {
+              levels.push(this.valueUp[r]![c]!.level)
+              ids.push(this.valueUp[r]![c]!.tileId)
+            }
           }
-          const merged: number[] = []
+          const mergedLv: number[] = []
+          const mergedId: number[] = []
           for (let i = 0; i < levels.length; i++) {
             if (i + 1 < levels.length && levels[i]! === levels[i + 1]!) {
-              merged.push(levels[i]! + 1)
+              mergedLv.push(levels[i]! + 1)
+              mergedId.push(ids[i]!)
+              // locate the actual grid row of the surviving tile
+              for (let r = this.row - 1; r >= 0; r--) {
+                if (this.valueUp[r]![c]!.tileId === ids[i]) {
+                  this.mergeCells[r]![c] = true
+                  break
+                }
+              }
               i++
             } else {
-              merged.push(levels[i]!)
+              mergedLv.push(levels[i]!)
+              mergedId.push(ids[i]!)
             }
           }
           for (let r = 0; r < this.row; r++) {
-            this.valueUp[this.row - 1 - r]![c]!.level = merged[r] ?? 0
+            this.valueUp[this.row - 1 - r]![c]!.level = mergedLv[r] ?? 0
+            this.valueUp[this.row - 1 - r]![c]!.tileId = mergedId[r] ?? 0
           }
         }
         break
@@ -126,20 +167,29 @@ export class GameWin {
       case MoveType.left: {
         for (let r = 0; r < this.row; r++) {
           const levels: number[] = []
+          const ids: number[] = []
           for (let c = 0; c < this.col; c++) {
-            if (this.valueUp[r]![c]!.level > 0) levels.push(this.valueUp[r]![c]!.level)
+            if (this.valueUp[r]![c]!.level > 0) {
+              levels.push(this.valueUp[r]![c]!.level)
+              ids.push(this.valueUp[r]![c]!.tileId)
+            }
           }
-          const merged: number[] = []
+          const mergedLv: number[] = []
+          const mergedId: number[] = []
           for (let i = 0; i < levels.length; i++) {
             if (i + 1 < levels.length && levels[i]! === levels[i + 1]!) {
-              merged.push(levels[i]! + 1)
+              mergedLv.push(levels[i]! + 1)
+              mergedId.push(ids[i]!)
+              this.mergeCells[r]![levels.indexOf(levels[i]!)] = true
               i++
             } else {
-              merged.push(levels[i]!)
+              mergedLv.push(levels[i]!)
+              mergedId.push(ids[i]!)
             }
           }
           for (let c = 0; c < this.col; c++) {
-            this.valueUp[r]![c]!.level = merged[c] ?? 0
+            this.valueUp[r]![c]!.level = mergedLv[c] ?? 0
+            this.valueUp[r]![c]!.tileId = mergedId[c] ?? 0
           }
         }
         break
@@ -147,25 +197,41 @@ export class GameWin {
       case MoveType.right: {
         for (let r = 0; r < this.row; r++) {
           const levels: number[] = []
+          const ids: number[] = []
           for (let c = this.col - 1; c >= 0; c--) {
-            if (this.valueUp[r]![c]!.level > 0) levels.push(this.valueUp[r]![c]!.level)
+            if (this.valueUp[r]![c]!.level > 0) {
+              levels.push(this.valueUp[r]![c]!.level)
+              ids.push(this.valueUp[r]![c]!.tileId)
+            }
           }
-          const merged: number[] = []
+          const mergedLv: number[] = []
+          const mergedId: number[] = []
           for (let i = 0; i < levels.length; i++) {
             if (i + 1 < levels.length && levels[i]! === levels[i + 1]!) {
-              merged.push(levels[i]! + 1)
+              mergedLv.push(levels[i]! + 1)
+              mergedId.push(ids[i]!)
+              // locate the actual grid column of the surviving tile
+              for (let c = this.col - 1; c >= 0; c--) {
+                if (this.valueUp[r]![c]!.tileId === ids[i]) {
+                  this.mergeCells[r]![c] = true
+                  break
+                }
+              }
               i++
             } else {
-              merged.push(levels[i]!)
+              mergedLv.push(levels[i]!)
+              mergedId.push(ids[i]!)
             }
           }
           for (let c = 0; c < this.col; c++) {
-            this.valueUp[r]![this.col - 1 - c]!.level = merged[c] ?? 0
+            this.valueUp[r]![this.col - 1 - c]!.level = mergedLv[c] ?? 0
+            this.valueUp[r]![this.col - 1 - c]!.tileId = mergedId[c] ?? 0
           }
         }
         break
       }
     }
+
     // 更新计数，生成新数字
     this.valueUpCnt = 0
     for (let r = 0; r < this.row; r++)
@@ -182,7 +248,7 @@ export class GameWin {
     this.valueUp = buff[0]
     this.valueDown = buff[1]
     //buff[2]用于动画
-
+    this.resetAnimFlags()
     this.scoreCnt()
   }
 
@@ -195,9 +261,13 @@ export class GameWin {
       }
     }
     if (emptyCells.length === 0) return
-    for (let i = 0; i < 2; i++) {
-      const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)]!
+    for (let i = 0; i < 2 && emptyCells.length > 0; i++) {
+      const idx = Math.floor(Math.random() * emptyCells.length)
+      const { r, c } = emptyCells[idx]!
+      emptyCells.splice(idx, 1)
       this.valueUp[r]![c]!.level = Math.random() < 0.9 ? 1 : 2
+      this.valueUp[r]![c]!.tileId = nextTileId++
+      this.newCells[r]![c] = true
     }
   }
 
