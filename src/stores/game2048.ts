@@ -25,18 +25,42 @@ enum BackgroundCellType {
   DarkHoll = 1, // 黑洞，不计算当前格子的分数
   Double = 2, // 翻倍，双倍计算当前格子的分数
   Error = 3, // 错误，如果一个元素2个回合都在error上，将随机改变cell的level
+
+  Len = 3, //可选长度
 }
 //游戏底层元素（加成）
 class BackgroundCell {
-  type: BackgroundCellType = BackgroundCellType.Default
+  type: BackgroundCellType
   location: { x: number; y: number }
-  constructor(x: number, y: number) {
+  constructor(x: number, y: number, type: BackgroundCellType = BackgroundCellType.Default) {
     this.location = { x: x, y: y }
+    this.type = type
+  }
+
+  //计算当前格子的倍率
+  scoreMultiple(): number {
+    switch (this.type) {
+      case BackgroundCellType.Default: {
+        return 1
+      }
+      case BackgroundCellType.DarkHoll: {
+        return 0
+      }
+      case BackgroundCellType.Double: {
+        return 2
+      }
+      default: {
+        return 1
+      }
+    }
   }
 }
 
 //游戏窗口
 export class GameWin {
+  //移动步数
+  moveTimes: number = 0
+
   row: number = 5
   col: number = 5
   valueUp: Cell[][]
@@ -51,7 +75,9 @@ export class GameWin {
   newCells: boolean[][] = []
   mergeCells: boolean[][] = []
 
-  constructor() {
+  constructor(row?: number, col?: number) {
+    if (row) this.row = row
+    if (col) this.col = col
     this.valueUp = Array.from({ length: this.row }, (_, r) =>
       Array.from({ length: this.col }, (_, c) => new Cell(0, r, c, 0)),
     )
@@ -239,6 +265,12 @@ export class GameWin {
     this.createNum()
 
     this.scoreCnt()
+
+    //十步刷新底层元素
+    if (this.moveTimes++ > 10) {
+      this.upDateValueDown()
+      this.moveTimes = 0
+    }
   }
 
   //撤回函数
@@ -250,6 +282,7 @@ export class GameWin {
     //buff[2]用于动画
     this.resetAnimFlags()
     this.scoreCnt()
+    this.moveTimes--
   }
 
   //生成数字
@@ -276,7 +309,27 @@ export class GameWin {
     this.score = 0
     for (let i = 0; i < this.row; i++)
       for (let j = 0; j < this.col; j++) {
-        if (this.valueUp[i]![j]!.level !== 0) this.score += Math.pow(2, this.valueUp[i]![j]!.level)
+        if (this.valueUp[i]![j]!.level !== 0) {
+          this.score +=
+            Math.pow(2, this.valueUp[i]![j]!.level) * this.valueDown[i]![j]!.scoreMultiple()
+        }
       }
+  }
+
+  //更新底层元素
+  upDateValueDown() {
+    // 全体格子坐标
+    const allPos = Array.from({ length: this.row }, (_, r) =>
+      Array.from({ length: this.col }, (_, c) => ({ r, c }))
+    ).flat()
+    // 随机选 3 个不同位置
+    const picked = allPos.sort(() => Math.random() - 0.5).slice(0, BackgroundCellType.Len)
+    this.valueDown = Array.from({ length: this.row }, (_, row) =>
+      Array.from({ length: this.col }, (_, col) => {
+        const idx = picked.findIndex((p) => p.r === row && p.c === col)
+        if (idx >= 0) return new BackgroundCell(row, col, idx + 1)
+        return new BackgroundCell(row, col)
+      }),
+    )
   }
 }

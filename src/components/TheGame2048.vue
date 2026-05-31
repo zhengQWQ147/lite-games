@@ -95,14 +95,8 @@ const tileList = computed(() => {
 </script>
 
 <template>
-  <div
-    class="game-2048"
-    @touchstart="handleTouchStart"
-    @touchmove.prevent
-    @touchend="handleTouchEnd"
-    @mousedown="handleMouseDown"
-    @mouseup="handleMouseUp"
-  >
+  <div class="game-2048" @touchstart="handleTouchStart" @touchmove.prevent @touchend="handleTouchEnd"
+    @mousedown="handleMouseDown" @mouseup="handleMouseUp">
     <div class="header">
       <div class="score">分数: {{ game.score }}</div>
       <button class="undo-btn" @click="game.rollbackMove()">撤回</button>
@@ -110,23 +104,25 @@ const tileList = computed(() => {
     <div class="board">
       <!-- 背景网格 -->
       <div class="grid-bg">
-        <div v-for="idx in game.row * game.col" :key="idx" class="cell-bg" />
+        <div v-for="(bgCell, idx) in game.valueDown.flat()" :key="idx" class="cell-bg"
+          :class="`bg-${bgCell.type}`">
+          <span v-if="bgCell.type === 1" class="bg-icon">🕳</span>
+          <span v-else-if="bgCell.type === 2" class="bg-icon">✖2</span>
+          <span v-else-if="bgCell.type === 3" class="bg-icon">!</span>
+        </div>
       </div>
       <!-- 格子层 -->
       <div class="tile-layer">
-        <div
-          v-for="tile in tileList"
-          :key="tile.id"
-          class="tile"
-          :class="{ 'tile-new': tile.isNew, 'tile-merge': tile.isMerged }"
-          :style="{
-            left: `calc(8px + ${tile.col} * (20% - 1.6px))`,
-            top: `calc(8px + ${tile.row} * (20% - 1.6px))`,
+        <div v-for="tile in tileList" :key="tile.id" class="tile"
+          :class="{ 'tile-new': tile.isNew, 'tile-merge': tile.isMerged }" :style="{
+            left: `calc(8px + ${tile.col} * (20% - 1.6px) + (20% - 9.6px) * 0.075)`,
+            top: `calc(8px + ${tile.row} * (20% - 1.6px) + (20% - 9.6px) * 0.075)`,
+            width: 'calc((20% - 9.6px) * 0.85)',
+            height: 'calc((20% - 9.6px) * 0.85)',
             backgroundColor: cellColors[tile.level]?.bg ?? '#3c3a32',
             color: cellColors[tile.level]?.color ?? '#f9f6f2',
             fontSize: tile.level >= 10 ? 'min(3.5vw, 18px)' : 'min(5vw, 26px)',
-          }"
-        >
+          }">
           {{ 2 ** tile.level }}
         </div>
       </div>
@@ -195,9 +191,55 @@ const tileList = computed(() => {
 }
 
 .cell-bg {
-  background: rgba(238, 228, 218, 0.35);
   border-radius: 4px;
   aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.bg-0 {
+  background: rgba(238, 228, 218, 0.35);
+}
+
+.bg-1 {
+  background: linear-gradient(135deg, #2d1b4e, #1a0a2e);
+  box-shadow: inset 0 0 8px rgba(100, 0, 200, 0.3);
+}
+
+.bg-2 {
+  background: linear-gradient(135deg, #fff3cd, #ffe69c);
+  box-shadow: inset 0 0 6px rgba(255, 193, 7, 0.4);
+}
+
+.bg-3 {
+  background: linear-gradient(135deg, #fce4ec, #f8bbd0);
+  box-shadow: inset 0 0 6px rgba(244, 67, 54, 0.3);
+}
+
+.bg-icon {
+  pointer-events: none;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.bg-1 .bg-icon {
+  color: #b388ff;
+  font-size: 16px;
+}
+
+.bg-2 .bg-icon {
+  color: #b8860b;
+  font-size: 11px;
+}
+
+.bg-3 .bg-icon {
+  color: #c62828;
+  font-weight: 900;
+  font-size: 16px;
 }
 
 .tile-layer {
@@ -213,8 +255,6 @@ const tileList = computed(() => {
   justify-content: center;
   font-weight: bold;
   border-radius: 4px;
-  width: calc(20% - 9.6px);
-  height: calc(20% - 9.6px);
   transition: left 0.12s ease, top 0.12s ease;
   z-index: 1;
 }
@@ -229,14 +269,30 @@ const tileList = computed(() => {
 }
 
 @keyframes pop-in {
-  0% { transform: scale(0); }
-  60% { transform: scale(1.08); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0);
+  }
+
+  60% {
+    transform: scale(1.08);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 @keyframes merge-pulse {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.15); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  40% {
+    transform: scale(1.15);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 </style>
