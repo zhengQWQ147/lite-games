@@ -104,8 +104,8 @@ export class GameWin {
 
   //处理移动
   move(moveTyle: MoveType): void {
-    //入栈，历史记录，用于撤回
-    this.historyStack.push([
+    // 移动前深拷贝快照
+    const snapshot: [Cell[][], BackgroundCell[][], MoveType] = [
       this.valueUp.map((row) =>
         row.map((cell) => new Cell(cell.level, cell.location.x, cell.location.y, cell.tileId)),
       ),
@@ -117,10 +117,8 @@ export class GameWin {
         }),
       ),
       moveTyle,
-    ])
-    if (this.historyStack.length > 20) this.historyStack.shift()
+    ]
 
-    // 保存旧状态，清空动画标记
     this.resetAnimFlags()
 
     switch (moveTyle) {
@@ -258,19 +256,32 @@ export class GameWin {
       }
     }
 
-    // 更新计数，生成新数字
-    this.valueUpCnt = 0
-    for (let r = 0; r < this.row; r++)
-      for (let c = 0; c < this.col; c++) if (this.valueUp[r]![c]!.level > 0) this.valueUpCnt++
-    this.createNum()
-
-    this.scoreCnt()
-
     //十步刷新底层元素
     if (this.moveTimes++ > 10) {
       this.upDateValueDown()
       this.moveTimes = 0
     }
+
+    // 无实际变化则不记录
+    let changed = false
+    for (let r = 0; r < this.row && !changed; r++)
+      for (let c = 0; c < this.col && !changed; c++)
+        if (snapshot[0]![r]![c]!.level !== this.valueUp[r]![c]!.level) changed = true
+
+    if (!changed) {
+      this.moveTimes--
+      return
+    }
+
+    this.historyStack.push(snapshot)
+    if (this.historyStack.length > 20) this.historyStack.shift()
+
+    // 更新计数，生成新数字
+    this.valueUpCnt = 0
+    for (let r = 0; r < this.row; r++)
+      for (let c = 0; c < this.col; c++) if (this.valueUp[r]![c]!.level > 0) this.valueUpCnt++
+    this.createNum()
+    this.scoreCnt()
   }
 
   //撤回函数
@@ -320,7 +331,7 @@ export class GameWin {
   upDateValueDown() {
     // 全体格子坐标
     const allPos = Array.from({ length: this.row }, (_, r) =>
-      Array.from({ length: this.col }, (_, c) => ({ r, c }))
+      Array.from({ length: this.col }, (_, c) => ({ r, c })),
     ).flat()
     // 随机选 3 个不同位置
     const picked = allPos.sort(() => Math.random() - 0.5).slice(0, BackgroundCellType.Len)
