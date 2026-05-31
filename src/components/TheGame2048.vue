@@ -53,8 +53,21 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', handleKeydown))
-onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+function handleBeforeUnload() {
+  game.saveGame()
+}
+
+onMounted(() => {
+  game.loadGame()
+  window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onUnmounted(() => {
+  game.saveGame()
+  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+})
 
 // 格子颜色
 const cellColors: Record<number, { bg: string; color: string }> = {
@@ -98,8 +111,14 @@ const tileList = computed(() => {
   <div class="game-2048" @touchstart="handleTouchStart" @touchmove.prevent @touchend="handleTouchEnd"
     @mousedown="handleMouseDown" @mouseup="handleMouseUp">
     <div class="header">
-      <div class="score">分数: {{ game.score }}</div>
-      <button class="undo-btn" @click="game.rollbackMove()">撤回</button>
+      <div class="score-group">
+        <div class="score-box">分数<br><span>{{ game.score }}</span></div>
+        <div class="score-box best">最高<br><span>{{ game.highScore }}</span></div>
+      </div>
+      <div class="btn-group">
+        <button class="btn" @click="game.rollbackMove()">撤回</button>
+        <button class="btn" @click="game.resetGame()">新游戏</button>
+      </div>
     </div>
     <div class="board">
       <!-- 背景网格 -->
@@ -146,19 +165,45 @@ const tileList = computed(() => {
 .header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 500px;
   margin-bottom: 16px;
+  gap: 12px;
 }
 
-.score {
-  font-size: 24px;
-  font-weight: bold;
-  color: #776e65;
+.score-group {
+  display: flex;
+  gap: 8px;
 }
 
-.undo-btn {
-  padding: 8px 20px;
-  font-size: 16px;
+.score-box {
+  background: #bbada0;
+  border-radius: 6px;
+  padding: 6px 16px;
+  text-align: center;
+  font-size: 11px;
+  color: #eee4da;
+  text-transform: uppercase;
+  min-width: 64px;
+}
+
+.score-box span {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.btn {
+  padding: 8px 14px;
+  font-size: 14px;
   font-weight: bold;
   color: #f9f6f2;
   background: #8f7a66;
@@ -166,9 +211,10 @@ const tileList = computed(() => {
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s;
+  white-space: nowrap;
 }
 
-.undo-btn:active {
+.btn:active {
   background: #6b5a4e;
 }
 

@@ -63,9 +63,9 @@ export class GameWin {
 
   row: number = 5
   col: number = 5
-  valueUp: Cell[][]
-  valueUpCnt: number
-  valueDown: BackgroundCell[][]
+  valueUp!: Cell[][]
+  valueUpCnt!: number
+  valueDown!: BackgroundCell[][]
   score: number = 0
 
   //游戏栈，用于撤回
@@ -75,9 +75,17 @@ export class GameWin {
   newCells: boolean[][] = []
   mergeCells: boolean[][] = []
 
+  //历史最高分
+  highScore: number = 0
+
   constructor(row?: number, col?: number) {
+    this.loadHighScore()
     if (row) this.row = row
     if (col) this.col = col
+    this.initGrid()
+  }
+
+  private initGrid() {
     this.valueUp = Array.from({ length: this.row }, (_, r) =>
       Array.from({ length: this.col }, (_, c) => new Cell(0, r, c, 0)),
     )
@@ -85,8 +93,31 @@ export class GameWin {
     this.valueDown = Array.from({ length: this.row }, (_, row) =>
       Array.from({ length: this.col }, (_, col) => new BackgroundCell(row, col)),
     )
+    this.score = 0
+    this.moveTimes = 0
+    this.historyStack = []
     this.resetAnimFlags()
     this.createNum()
+  }
+
+  //新游戏
+  resetGame() {
+    localStorage.removeItem('game2048_save')
+    nextTileId = 1
+    this.initGrid()
+    this.saveGame()
+  }
+
+  loadHighScore() {
+    const raw = localStorage.getItem('game2048_highscore')
+    this.highScore = raw ? parseInt(raw, 10) : 0
+  }
+
+  updateHighScore() {
+    if (this.score > this.highScore) {
+      this.highScore = this.score
+      localStorage.setItem('game2048_highscore', String(this.highScore))
+    }
   }
 
   resetAnimFlags() {
@@ -282,6 +313,7 @@ export class GameWin {
       for (let c = 0; c < this.col; c++) if (this.valueUp[r]![c]!.level > 0) this.valueUpCnt++
     this.createNum()
     this.scoreCnt()
+    this.saveGame()
   }
 
   //撤回函数
@@ -294,6 +326,7 @@ export class GameWin {
     this.resetAnimFlags()
     this.scoreCnt()
     this.moveTimes--
+    this.saveGame()
   }
 
   //生成数字
@@ -325,6 +358,7 @@ export class GameWin {
             Math.pow(2, this.valueUp[i]![j]!.level) * this.valueDown[i]![j]!.scoreMultiple()
         }
       }
+    this.updateHighScore()
   }
 
   //更新底层元素
@@ -343,4 +377,76 @@ export class GameWin {
       }),
     )
   }
+
+  //#region 本地存档
+  saveGame(): void {
+    const data = {
+      row: this.row,
+      col: this.col,
+      valueUp: this.valueUp.map((row) =>
+        row.map((cell) => ({
+          level: cell.level,
+          tileId: cell.tileId,
+          x: cell.location.x,
+          y: cell.location.y,
+        })),
+      ),
+      valueDown: this.valueDown.map((row) =>
+        row.map((bg) => ({ type: bg.type, x: bg.location.x, y: bg.location.y })),
+      ),
+      valueUpCnt: this.valueUpCnt,
+      score: this.score,
+      moveTimes: this.moveTimes,
+      historyStack: this.historyStack.map((entry) => ({
+        valueUp: entry[0].map((row) =>
+          row.map((cell) => ({
+            level: cell.level,
+            tileId: cell.tileId,
+            x: cell.location.x,
+            y: cell.location.y,
+          })),
+        ),
+        valueDown: entry[1].map((row) =>
+          row.map((bg) => ({ type: bg.type, x: bg.location.x, y: bg.location.y })),
+        ),
+        moveTyle: entry[2],
+      })),
+      nextTileId,
+    }
+    localStorage.setItem('game2048_save', JSON.stringify(data))
+  }
+
+  /** 从 localStorage 恢复存档，返回是否成功 */
+  loadGame(): boolean {
+    const raw = localStorage.getItem('game2048_save')
+    if (!raw) return false
+    try {
+      const d = JSON.parse(raw)
+      ;(this.row = d.row), (this.col = d.col)
+      this.valueUp = d.valueUp.map((row: any) =>
+        row.map((cell: any) => new Cell(cell.level, cell.x, cell.y, cell.tileId)),
+      )
+      this.valueDown = d.valueDown.map((row: any) =>
+        row.map((bg: any) => new BackgroundCell(bg.x, bg.y, bg.type)),
+      )
+      this.valueUpCnt = d.valueUpCnt
+      this.score = d.score
+      this.moveTimes = d.moveTimes ?? 0
+      this.historyStack = (d.historyStack || []).map((entry: any) => [
+        entry.valueUp.map((row: any[]) =>
+          row.map((cell: any) => new Cell(cell.level, cell.x, cell.y, cell.tileId)),
+        ),
+        entry.valueDown.map((row: any[]) =>
+          row.map((bg: any) => new BackgroundCell(bg.x, bg.y, bg.type)),
+        ),
+        entry.moveTyle,
+      ])
+      nextTileId = d.nextTileId ?? 1
+      this.resetAnimFlags()
+      return true
+    } catch {
+      return false
+    }
+  }
+  //#endregion
 }
