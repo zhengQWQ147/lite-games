@@ -24,7 +24,7 @@ enum BackgroundCellType {
   Default = 0, // 无特殊样式
   DarkHoll = 1, // 黑洞，不计算当前格子的分数
   Double = 2, // 翻倍，双倍计算当前格子的分数
-  Error = 3, // 错误，如果一个元素2个回合都在error上，将随机改变cell的level
+  RubbishCage = 3, // 垃圾桶，碰到元素消失，暂时不实现
 
   Len = 3, //可选长度
 }
@@ -49,6 +49,9 @@ class BackgroundCell {
       case BackgroundCellType.Double: {
         return 2
       }
+      // case BackgroundCellType.RubbishCage: {
+      //   return -1
+      // }
       default: {
         return 1
       }
@@ -354,6 +357,10 @@ export class GameWin {
     for (let i = 0; i < this.row; i++)
       for (let j = 0; j < this.col; j++) {
         if (this.valueUp[i]![j]!.level !== 0) {
+          // if (this.valueDown[i]![j]!.scoreMultiple() === -1) {
+          //   this.valueUp[i]![j]!.level = 0
+          //   continue
+          // }
           this.score +=
             Math.pow(2, this.valueUp[i]![j]!.level) * this.valueDown[i]![j]!.scoreMultiple()
         }
@@ -422,7 +429,7 @@ export class GameWin {
     if (!raw) return false
     try {
       const d = JSON.parse(raw)
-      ;(this.row = d.row), (this.col = d.col)
+      ;((this.row = d.row), (this.col = d.col))
       this.valueUp = d.valueUp.map((row: any) =>
         row.map((cell: any) => new Cell(cell.level, cell.x, cell.y, cell.tileId)),
       )
