@@ -19,6 +19,11 @@ const router = createRouter({
       name: '2048',
       component: () => import('../views/Game2048View.vue'),
     },
+    {
+      path: '/cube',
+      name: 'cube',
+      component: () => import('../views/CubeView.vue'),
+    },
   ],
 })
 

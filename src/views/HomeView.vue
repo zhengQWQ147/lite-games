@@ -19,6 +19,12 @@ const router = useRouter()
         <span class="game-name">2048</span>
         <span class="game-desc">合并方块</span>
       </div>
+      <div class="game-card" @click="router.push('/cube')">
+        <span class="game-icon">🔢</span>
+        <span class="game-name">魔方</span>
+        <span class="game-desc">拧魔方</span>
+      </div>
+
     </div>
   </div>
 </template>
