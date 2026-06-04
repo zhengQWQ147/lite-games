@@ -24,7 +24,11 @@ const router = useRouter()
         <span class="game-name">魔方</span>
         <span class="game-desc">拧魔方</span>
       </div>
-
+      <div class="game-card" @click="router.push('/pgRun')">
+        <span class="game-icon">🔢</span>
+        <span class="game-name">凑企鹅快跑</span>
+        <span class="game-desc">跑酷</span>
+      </div>
     </div>
   </div>
 </template>

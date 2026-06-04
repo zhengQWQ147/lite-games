@@ -24,6 +24,11 @@ const router = createRouter({
       name: 'cube',
       component: () => import('../views/CubeView.vue'),
     },
+    {
+      path: '/pgRun',
+      name: 'penguinRunning',
+      component: () => import('../views/PenguinRuning.vue'),
+    },
   ],
 })
 
